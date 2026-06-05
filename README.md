@@ -18,14 +18,23 @@ The app recreates the workflow of the original Jupyter notebook GUI with:
 - AiZynthFinder model data and stock files
 
 AiZynthFinder requires a configuration file that points to stock and policy model data.
-You can download the public example data with:
+This repo includes a helper that downloads the official public data used by
+AiZynthFinder:
+
+- USPTO expansion policy ONNX model
+- USPTO reaction templates
+- USPTO ringbreaker model/templates
+- USPTO filter policy ONNX model
+- ZINC stock collection (`zinc_stock.hdf5`)
+
+Download it with:
 
 ```bash
-python -m pip install "aizynthfinder[all]"
-download_public_data ./aizynth-data
+./scripts/download-public-data.sh
 ```
 
-This creates a `config.yml` file under `./aizynth-data`.
+This creates `./aizynth-data/config.yml`. The backend auto-detects that path
+when `AIZYNTH_CONFIG` is not set.
 
 ## Backend
 
@@ -38,11 +47,14 @@ export AIZYNTH_CONFIG=/absolute/path/to/aizynth-data/config.yml
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
+If you used `./scripts/download-public-data.sh` and kept the default
+`./aizynth-data` directory, the `AIZYNTH_CONFIG` export is optional.
+
 Useful environment variables:
 
 | Variable | Description | Default |
 | --- | --- | --- |
-| `AIZYNTH_CONFIG` | Path to AiZynthFinder `config.yml` | unset |
+| `AIZYNTH_CONFIG` | Path to AiZynthFinder `config.yml` | auto-detects `./aizynth-data/config.yml` when present |
 | `CORS_ORIGINS` | Comma-separated allowed frontend origins | `http://localhost:5173,http://127.0.0.1:5173` |
 | `MAX_SEARCH_TIME_SECONDS` | Backend cap for a single search | `900` |
 | `MAX_SEARCH_ITERATIONS` | Backend cap for a single search | `5000` |
@@ -54,8 +66,9 @@ The API exposes:
 - `GET /api/metadata`
 - `POST /api/search`
 
-If `AIZYNTH_CONFIG` is missing, the UI still loads and shows setup instructions,
-but search execution is disabled until the backend is configured.
+If `AIZYNTH_CONFIG` is missing and `./aizynth-data/config.yml` is not present,
+the UI still loads and shows setup instructions, but search execution is
+disabled until the backend is configured.
 
 ## Frontend
 
