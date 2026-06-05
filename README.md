@@ -103,3 +103,46 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 When `frontend/dist` exists, the FastAPI server serves the built web app from `/`.
+
+## Easypanel / Docker Compose deployment
+
+This repository includes a single-container Docker deployment for Easypanel.
+It builds the React frontend, installs the Python backend, and automatically
+downloads the public AiZynthFinder data on first startup:
+
+- USPTO expansion policy ONNX model
+- USPTO reaction templates
+- USPTO ringbreaker model/templates
+- USPTO filter policy ONNX model
+- ZINC stock collection
+
+No manual model download is required for Docker deployment.
+
+The compose file maps the application to a randomly chosen high host port:
+
+```text
+43871 -> container port 8000
+```
+
+Run locally with:
+
+```bash
+docker compose up --build
+```
+
+Then open:
+
+```text
+http://localhost:43871
+```
+
+For Easypanel:
+
+1. Create a new Compose app.
+2. Use the repository's `docker-compose.yml`.
+3. Deploy.
+4. Wait for the first boot to download the public USPTO/ZINC data into the
+   `aizynthfinder-public-data` Docker volume.
+
+If port `43871` is already used on your host, set `AIZYNTH_GUI_PORT` to another
+free high port before deployment. The internal container port remains `8000`.
