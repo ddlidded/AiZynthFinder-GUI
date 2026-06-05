@@ -29,7 +29,7 @@ function RouteNodeView({ node, depth = 0 }: { node: RouteNode; depth?: number })
         </div>
         <strong>{nodeTitle(node)}</strong>
         <code>{node.smiles ?? "No SMILES"}</code>
-        {node.metadata?.classification && (
+        {node.metadata?.classification !== undefined && (
           <small>Class: {String(node.metadata.classification)}</small>
         )}
       </div>
