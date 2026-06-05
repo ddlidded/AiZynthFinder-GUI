@@ -22,12 +22,12 @@ services:
           "CMD",
           "python",
           "-c",
-          "import json, urllib.request; data=json.loads(urllib.request.urlopen('http://127.0.0.1:8000/api/status', timeout=5).read()); assert data['api_ready'] and data['public_data_ready']",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=5).read()",
         ]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 20m
+      start_period: 60s
 
 volumes:
   aizynthfinder-public-data:

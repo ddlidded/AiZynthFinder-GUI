@@ -58,6 +58,27 @@ def test_deployment_status_reports_missing_config() -> None:
     assert "config was not found" in status.message
 
 
+def test_deployment_status_reports_background_download(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.yml"
+    config_path.touch()
+    (tmp_path / ".download-in-progress").touch()
+    service = RetrosynthesisService(
+        Settings(
+            config_path=config_path,
+            cors_origins=("http://localhost:5173",),
+            max_time_seconds=900,
+            max_iterations=5000,
+            static_dir=Path("frontend/dist"),
+        )
+    )
+
+    status = service.deployment_status()
+
+    assert status.download_in_progress is True
+    assert status.public_data_ready is False
+    assert "download is running" in status.message
+
+
 def test_search_request_strips_smiles_and_atom_limits() -> None:
     request = SearchRequest(smiles=" CCO ", atom_limits={"C": 4, " O ": 0})
 

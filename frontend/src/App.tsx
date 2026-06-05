@@ -184,27 +184,37 @@ export function App() {
   }, [searchResult]);
 
   const ready = metadata?.ready ?? false;
-  const statusText = ready
-    ? "Engine ready"
-    : deploymentStatus?.engine_initializing || metadataLoading
-      ? "Loading engine"
-      : deploymentStatus?.engine_error
-        ? "Engine error"
-      : deploymentStatus && !deploymentStatus.public_data_ready
-        ? "Waiting for data"
-        : "Checking backend";
-  const backendMessage = ready
-    ? `Using ${metadata?.config_path}`
-    : deploymentStatus?.engine_error
-      ? `AiZynthFinder engine initialization failed: ${deploymentStatus.engine_error}`
-      : (metadataLoading || deploymentStatus?.engine_initializing) &&
-          deploymentStatus?.public_data_ready
-      ? "Public data is present. AiZynthFinder is loading the USPTO models and ZINC stock; first startup can take a minute or two."
-      : deploymentStatus?.message ??
-        metadata?.message ??
-        (deploymentStatus ? null : metadataError) ??
-        statusError ??
-        "Checking backend and public model data...";
+  let statusText = "Checking backend";
+  let backendMessage =
+    deploymentStatus?.message ??
+    metadata?.message ??
+    (deploymentStatus ? null : metadataError) ??
+    statusError ??
+    "Checking backend and public model data...";
+
+  if (ready) {
+    statusText = "Engine ready";
+    backendMessage = `Using ${metadata?.config_path}`;
+  } else if (deploymentStatus?.download_error) {
+    statusText = "Download error";
+    backendMessage = `Automatic public data download failed: ${deploymentStatus.download_error}`;
+  } else if (deploymentStatus?.download_in_progress) {
+    statusText = "Downloading data";
+    backendMessage =
+      "The web app is running while Easypanel downloads the public USPTO models and ZINC stock in the background. Search unlocks automatically when the download finishes.";
+  } else if (deploymentStatus?.engine_error) {
+    statusText = "Engine error";
+    backendMessage = `AiZynthFinder engine initialization failed: ${deploymentStatus.engine_error}`;
+  } else if (
+    (metadataLoading || deploymentStatus?.engine_initializing) &&
+    deploymentStatus?.public_data_ready
+  ) {
+    statusText = "Loading engine";
+    backendMessage =
+      "Public data is present. AiZynthFinder is loading the USPTO models and ZINC stock; first startup can take a minute or two.";
+  } else if (deploymentStatus && !deploymentStatus.public_data_ready) {
+    statusText = "Waiting for data";
+  }
 
   const submitSearch = async (event: FormEvent) => {
     event.preventDefault();

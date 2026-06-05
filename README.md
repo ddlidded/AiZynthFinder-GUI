@@ -147,11 +147,12 @@ For Easypanel:
 If port `43871` is already used on your host, set `AIZYNTH_GUI_PORT` to another
 free high port before deployment. The internal container port remains `8000`.
 
-### Easypanel startup status
+### Easypanel startup status and recovery
 
-The container logs every required public data file before starting the web
-server. On first boot, Easypanel may show the service as starting while the
-USPTO/ZINC files are downloaded into the Docker volume.
+The web server starts immediately. On first boot, the public USPTO/ZINC files
+download in the background into the Docker volume while the UI shows
+**Downloading data** or **Waiting for data**. Search controls unlock after the
+download completes and the engine finishes loading.
 
 Useful checks:
 
@@ -165,3 +166,18 @@ Useful checks:
 If the UI shows **Loading engine**, the public data files are present and the
 backend is initializing AiZynthFinder. If it shows **Waiting for data**, inspect
 the Easypanel container logs for the automatic download/verification output.
+
+If a previous deployment crashed Easypanel or got stuck during the old blocking
+startup flow:
+
+1. Stop the Easypanel service.
+2. Pull/redeploy the latest image/commit.
+3. Start the service again. The API should come up quickly and `/api/health`
+   should respond even while data is downloading.
+4. If the named volume contains a partial/corrupt download, remove the
+   `aizynthfinder-public-data` volume from the Easypanel/Docker volumes page and
+   redeploy. The app will recreate it and download the public data again.
+
+The Docker healthcheck intentionally checks only `/api/health`; data/download
+state is reported in `/api/status` and in the UI so Easypanel does not restart a
+healthy web server while the large first-run data download is still in progress.
