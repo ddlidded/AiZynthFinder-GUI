@@ -53,8 +53,14 @@ class RetrosynthesisService:
         data_dir = config_path.parent if config_path else None
         file_statuses: list[DataFileStatus] = []
         missing_files: list[str] = []
+        download_in_progress = False
+        download_error: str | None = None
 
         if data_dir:
+            download_in_progress = (data_dir / ".download-in-progress").exists()
+            failed_marker = data_dir / ".download-failed"
+            if failed_marker.exists():
+                download_error = failed_marker.read_text(errors="replace").strip()
             for filename in self.PUBLIC_DATA_FILES:
                 path = data_dir / filename
                 exists = path.exists() and path.stat().st_size > 0
@@ -76,7 +82,18 @@ class RetrosynthesisService:
             engine_initializing = self._metadata_initializing
             engine_error = self._metadata_error
 
-        if engine_error:
+        if download_error:
+            message = (
+                "Automatic public data download failed. Check Easypanel logs and "
+                f"retry deployment. Error: {download_error}"
+            )
+        elif download_in_progress:
+            message = (
+                "Automatic public USPTO/ZINC data download is running in the "
+                "background. The web UI is available, but search will unlock after "
+                "the download finishes."
+            )
+        elif engine_error:
             message = f"AiZynthFinder engine initialization failed: {engine_error}"
         elif engine_initialized:
             message = "AiZynthFinder engine is initialized and ready."
@@ -105,6 +122,8 @@ class RetrosynthesisService:
             config_path=str(config_path) if config_path else None,
             data_dir=str(data_dir) if data_dir else None,
             public_data_ready=public_data_ready,
+            download_in_progress=download_in_progress,
+            download_error=download_error,
             engine_initialized=engine_initialized,
             engine_initializing=engine_initializing,
             engine_error=engine_error,

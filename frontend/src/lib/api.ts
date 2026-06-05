@@ -29,6 +29,8 @@ export interface DeploymentStatusResponse {
   config_path?: string | null;
   data_dir?: string | null;
   public_data_ready: boolean;
+  download_in_progress: boolean;
+  download_error?: string | null;
   engine_initialized: boolean;
   engine_initializing: boolean;
   engine_error?: string | null;
