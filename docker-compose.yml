@@ -1,0 +1,33 @@
+services:
+  aizynthfinder-gui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      # Random high host port chosen to avoid common service conflicts.
+      # Override with AIZYNTH_GUI_PORT if your Easypanel host already uses it.
+      - "${AIZYNTH_GUI_PORT:-43871}:8000"
+    environment:
+      AIZYNTH_DATA_DIR: /data/aizynth
+      AIZYNTH_CONFIG: /data/aizynth/config.yml
+      FRONTEND_DIST: /app/frontend/dist
+      MAX_SEARCH_TIME_SECONDS: "900"
+      MAX_SEARCH_ITERATIONS: "5000"
+    volumes:
+      - aizynthfinder-public-data:/data/aizynth
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=5).read()",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20m
+
+volumes:
+  aizynthfinder-public-data:
