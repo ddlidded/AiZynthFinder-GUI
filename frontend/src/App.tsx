@@ -24,12 +24,17 @@ function toggleSelection(value: string, selected: string[]): string[] {
     : [...selected, value];
 }
 
-function useMetadata() {
+function useMetadata(shouldLoad: boolean) {
   const [metadata, setMetadata] = useState<MetadataResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!shouldLoad) {
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
     let timeoutId: number | undefined;
 
@@ -68,7 +73,7 @@ function useMetadata() {
         window.clearTimeout(timeoutId);
       }
     };
-  }, []);
+  }, [shouldLoad]);
 
   return { metadata, error, loading };
 }
@@ -113,8 +118,10 @@ function useDeploymentStatus() {
 }
 
 export function App() {
-  const { metadata, error: metadataError, loading: metadataLoading } = useMetadata();
   const { status: deploymentStatus, error: statusError } = useDeploymentStatus();
+  const { metadata, error: metadataError, loading: metadataLoading } = useMetadata(
+    deploymentStatus?.public_data_ready ?? false
+  );
   const defaults = metadata?.defaults;
   const [smiles, setSmiles] = useState(exampleSmiles[0]);
   const [stocks, setStocks] = useState<string[]>([]);
@@ -157,20 +164,23 @@ export function App() {
   const ready = metadata?.ready ?? false;
   const statusText = ready
     ? "Engine ready"
-    : metadataLoading && deploymentStatus?.public_data_ready
+    : deploymentStatus?.engine_initializing || metadataLoading
       ? "Loading engine"
+      : deploymentStatus?.engine_error
+        ? "Engine error"
       : deploymentStatus && !deploymentStatus.public_data_ready
         ? "Waiting for data"
-        : metadataLoading
-          ? "Checking backend"
-          : "Setup needed";
+        : "Checking backend";
   const backendMessage = ready
     ? `Using ${metadata?.config_path}`
-    : metadataLoading && deploymentStatus?.public_data_ready
+    : deploymentStatus?.engine_error
+      ? `AiZynthFinder engine initialization failed: ${deploymentStatus.engine_error}`
+      : (metadataLoading || deploymentStatus?.engine_initializing) &&
+          deploymentStatus?.public_data_ready
       ? "Public data is present. AiZynthFinder is loading the USPTO models and ZINC stock; first startup can take a minute or two."
       : deploymentStatus?.message ??
         metadata?.message ??
-        metadataError ??
+        (deploymentStatus ? null : metadataError) ??
         statusError ??
         "Checking backend and public model data...";
 

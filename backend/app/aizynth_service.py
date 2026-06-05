@@ -40,8 +40,11 @@ class RetrosynthesisService:
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
-        self._metadata_lock = threading.Lock()
+        self._metadata_lock = threading.RLock()
         self._metadata_cache: MetadataResponse | None = None
+        self._metadata_initializing = False
+        self._metadata_error: str | None = None
+        self._metadata_started_at: float | None = None
 
     def deployment_status(self) -> DeploymentStatusResponse:
         """Return a lightweight status without importing AiZynthFinder."""
@@ -68,10 +71,24 @@ class RetrosynthesisService:
                     missing_files.append(filename)
 
         public_data_ready = bool(config_path and config_path.exists() and not missing_files)
-        if public_data_ready:
+        with self._metadata_lock:
+            engine_initialized = self._metadata_cache is not None
+            engine_initializing = self._metadata_initializing
+            engine_error = self._metadata_error
+
+        if engine_error:
+            message = f"AiZynthFinder engine initialization failed: {engine_error}"
+        elif engine_initialized:
+            message = "AiZynthFinder engine is initialized and ready."
+        elif engine_initializing:
             message = (
-                "Public USPTO/ZINC data files are present. If the UI still says "
-                "Checking engine, AiZynthFinder is loading models for the first time."
+                "Public USPTO/ZINC data files are present. AiZynthFinder is "
+                "loading the models and stock collection in the background."
+            )
+        elif public_data_ready:
+            message = (
+                "Public USPTO/ZINC data files are present. AiZynthFinder engine "
+                "warmup has not started yet."
             )
         elif config_path:
             message = (
@@ -88,10 +105,22 @@ class RetrosynthesisService:
             config_path=str(config_path) if config_path else None,
             data_dir=str(data_dir) if data_dir else None,
             public_data_ready=public_data_ready,
+            engine_initialized=engine_initialized,
+            engine_initializing=engine_initializing,
+            engine_error=engine_error,
             missing_files=missing_files,
             files=file_statuses,
             message=message,
         )
+
+    def warmup_metadata(self) -> None:
+        """Start AiZynthFinder metadata initialization in the background."""
+
+        readiness_message = self._readiness_message()
+        if readiness_message:
+            return
+        with self._metadata_lock:
+            self._start_metadata_warmup_locked()
 
     def metadata(self) -> MetadataResponse:
         """Return available stocks, policies and scorers for the configured engine."""
@@ -110,34 +139,26 @@ class RetrosynthesisService:
             if self._metadata_cache:
                 return self._metadata_cache
 
-            try:
-                finder = self._new_finder()
-            except Exception as err:  # pragma: no cover - depends on local model files
+            self._start_metadata_warmup_locked()
+            if self._metadata_error:
                 return MetadataResponse(
                     ready=False,
-                    message=f"Unable to initialize AiZynthFinder: {err}",
+                    message=(
+                        "Unable to initialize AiZynthFinder. Check container logs "
+                        f"and native/model dependencies: {self._metadata_error}"
+                    ),
                     config_path=str(self._settings.config_path),
                 )
 
-            rewards = list(
-                finder.config.search.algorithm_config.get("search_rewards", [])
-            )
-            self._metadata_cache = MetadataResponse(
-                ready=True,
-                config_path=str(self._settings.config_path),
-                stocks=list(finder.stock.items),
-                expansion_policies=list(finder.expansion_policy.items),
-                filter_policies=list(finder.filter_policy.items),
-                scorers=list(finder.scorers.names()),
-                defaults=SearchDefaults(
-                    time_limit=int(finder.config.search.time_limit),
-                    iteration_limit=int(finder.config.search.iteration_limit),
-                    max_transforms=int(finder.config.search.max_transforms),
-                    return_first=bool(finder.config.search.return_first),
-                    rewards=rewards,
+            return MetadataResponse(
+                ready=False,
+                message=(
+                    "AiZynthFinder engine is initializing in the background. "
+                    "This can take a minute or two on first startup while the "
+                    "USPTO models and ZINC stock are loaded."
                 ),
+                config_path=str(self._settings.config_path),
             )
-            return self._metadata_cache
 
     def search(self, request: SearchRequest) -> SearchResponse:
         """Run a retrosynthesis search and serialize route data for the frontend."""
@@ -203,6 +224,51 @@ class RetrosynthesisService:
     def _new_finder(self) -> Any:
         finder_cls = self._aizynthfinder_class()
         return finder_cls(configfile=str(self._settings.config_path))
+
+    def _start_metadata_warmup_locked(self) -> None:
+        if self._metadata_cache or self._metadata_initializing:
+            return
+        self._metadata_error = None
+        self._metadata_initializing = True
+        self._metadata_started_at = time.time()
+        thread = threading.Thread(
+            target=self._load_metadata_cache,
+            name="aizynthfinder-metadata-warmup",
+            daemon=True,
+        )
+        thread.start()
+
+    def _load_metadata_cache(self) -> None:
+        try:
+            finder = self._new_finder()
+            rewards = list(
+                finder.config.search.algorithm_config.get("search_rewards", [])
+            )
+            metadata = MetadataResponse(
+                ready=True,
+                config_path=str(self._settings.config_path),
+                stocks=list(finder.stock.items),
+                expansion_policies=list(finder.expansion_policy.items),
+                filter_policies=list(finder.filter_policy.items),
+                scorers=list(finder.scorers.names()),
+                defaults=SearchDefaults(
+                    time_limit=int(finder.config.search.time_limit),
+                    iteration_limit=int(finder.config.search.iteration_limit),
+                    max_transforms=int(finder.config.search.max_transforms),
+                    return_first=bool(finder.config.search.return_first),
+                    rewards=rewards,
+                ),
+            )
+        except Exception as err:  # pragma: no cover - depends on local model files
+            with self._metadata_lock:
+                self._metadata_error = str(err)
+                self._metadata_initializing = False
+            return
+
+        with self._metadata_lock:
+            self._metadata_cache = metadata
+            self._metadata_error = None
+            self._metadata_initializing = False
 
     @staticmethod
     def _aizynthfinder_class() -> Any:

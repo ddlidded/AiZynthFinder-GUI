@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import AsyncIterator
 
 import anyio
 from fastapi import FastAPI, HTTPException
@@ -21,10 +23,20 @@ from .settings import Settings
 settings = Settings.from_env()
 service = RetrosynthesisService(settings)
 
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Warm AiZynthFinder metadata in the background after the server starts."""
+
+    service.warmup_metadata()
+    yield
+
+
 app = FastAPI(
     title="AiZynthFinder Modern GUI",
     description="Modern web API for interactive AiZynthFinder retrosynthesis searches.",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(

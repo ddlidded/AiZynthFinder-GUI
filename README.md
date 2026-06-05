@@ -158,7 +158,9 @@ Useful checks:
 - `GET /api/health` - API liveness only
 - `GET /api/status` - fast deployment check for config/model/stock files
 - `GET /api/metadata` - initializes AiZynthFinder and can take longer on first
-  startup because it loads the USPTO models and ZINC stock
+  startup because it loads the USPTO models and ZINC stock. This endpoint starts
+  engine warmup in the background and returns an initializing response quickly,
+  so it should not time out behind Easypanel.
 
 If the UI shows **Loading engine**, the public data files are present and the
 backend is initializing AiZynthFinder. If it shows **Waiting for data**, inspect

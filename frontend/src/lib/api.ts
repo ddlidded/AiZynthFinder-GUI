@@ -29,6 +29,9 @@ export interface DeploymentStatusResponse {
   config_path?: string | null;
   data_dir?: string | null;
   public_data_ready: boolean;
+  engine_initialized: boolean;
+  engine_initializing: boolean;
+  engine_error?: string | null;
   missing_files: string[];
   files: DataFileStatus[];
   message: string;

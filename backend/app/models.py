@@ -38,6 +38,9 @@ class DeploymentStatusResponse(BaseModel):
     config_path: str | None = None
     data_dir: str | None = None
     public_data_ready: bool = False
+    engine_initialized: bool = False
+    engine_initializing: bool = False
+    engine_error: str | None = None
     missing_files: list[str] = Field(default_factory=list)
     files: list[DataFileStatus] = Field(default_factory=list)
     message: str
