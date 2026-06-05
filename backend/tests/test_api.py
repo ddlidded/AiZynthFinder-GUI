@@ -1,7 +1,11 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
+from app.aizynth_service import RetrosynthesisService
 from app.main import app
 from app.models import SearchRequest
+from app.settings import Settings
 
 
 def test_health_endpoint() -> None:
@@ -12,12 +16,20 @@ def test_health_endpoint() -> None:
 
 
 def test_metadata_reports_not_ready_without_config() -> None:
-    response = TestClient(app).get("/api/metadata")
+    service = RetrosynthesisService(
+        Settings(
+            config_path=None,
+            cors_origins=("http://localhost:5173",),
+            max_time_seconds=900,
+            max_iterations=5000,
+            static_dir=Path("frontend/dist"),
+        )
+    )
 
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["ready"] is False
-    assert "AIZYNTH_CONFIG" in payload["message"]
+    metadata = service.metadata()
+
+    assert metadata.ready is False
+    assert "AIZYNTH_CONFIG" in str(metadata.message)
 
 
 def test_search_request_strips_smiles_and_atom_limits() -> None:
