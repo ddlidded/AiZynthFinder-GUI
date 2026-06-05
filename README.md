@@ -110,7 +110,7 @@ This repository includes an explicit two-service Docker Compose deployment for
 Easypanel:
 
 - `aizynthfinder-backend` - FastAPI + AiZynthFinder on internal port `8000`
-- `aizynthfinder-frontend` - Nginx-served React UI on public port `80`
+- `aizynthfinder-gui` - Nginx-served React UI on public port `80`
 
 The frontend service proxies `/api/*` to `aizynthfinder-backend:8000`, so the
 browser talks to one public service while Easypanel still deploys a real backend
@@ -148,7 +148,7 @@ For Easypanel:
 1. Create a new Compose app.
 2. Use the repository's `docker-compose.yml`.
 3. Deploy both services from the compose file.
-4. Expose/open the `aizynthfinder-frontend` service. Do not expose the backend
+4. Expose/open the `aizynthfinder-gui` service. Do not expose the backend
    directly; the frontend proxies `/api` internally.
 5. Wait for the first boot to download the public USPTO/ZINC data into the
    `aizynthfinder-public-data` Docker volume.
