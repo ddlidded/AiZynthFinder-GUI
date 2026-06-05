@@ -2,6 +2,7 @@ import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "re
 import { MoleculeSketcher } from "./components/MoleculeSketcher";
 import { RouteTree } from "./components/RouteTree";
 import {
+  exportPdfReport,
   fetchDeploymentStatus,
   fetchMetadata,
   runSearch,
@@ -148,8 +149,11 @@ export function App() {
   const [atomLimits, setAtomLimits] = useState({ C: 0, N: 0, O: 0 });
   const [searchResult, setSearchResult] = useState<SearchResponse | null>(null);
   const [selectedRouteIndex, setSelectedRouteIndex] = useState(0);
+  const [selectedReportRouteIds, setSelectedReportRouteIds] = useState<number[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
+  const [exportingReport, setExportingReport] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!metadata) {
@@ -219,7 +223,9 @@ export function App() {
   const submitSearch = async (event: FormEvent) => {
     event.preventDefault();
     setSearchError(null);
+    setExportError(null);
     setSearchResult(null);
+    setSelectedReportRouteIds([]);
     setSelectedRouteIndex(0);
     setSearching(true);
 
@@ -244,10 +250,58 @@ export function App() {
     try {
       const result = await runSearch(payload);
       setSearchResult(result);
+      setSelectedReportRouteIds(result.routes.map((route) => route.index));
     } catch (err) {
       setSearchError(err instanceof Error ? err.message : "Search failed");
     } finally {
       setSearching(false);
+    }
+  };
+
+  const toggleReportRoute = (routeIndex: number) => {
+    setSelectedReportRouteIds((current) =>
+      current.includes(routeIndex)
+        ? current.filter((index) => index !== routeIndex)
+        : [...current, routeIndex]
+    );
+  };
+
+  const exportSelectedReport = async () => {
+    if (!searchResult) {
+      return;
+    }
+    const selectedRoutes = searchResult.routes.filter((route) =>
+      selectedReportRouteIds.includes(route.index)
+    );
+    if (selectedRoutes.length === 0) {
+      setExportError("Select at least one route to export.");
+      return;
+    }
+
+    setExportingReport(true);
+    setExportError(null);
+    try {
+      const pdf = await exportPdfReport({
+        target: searchResult.target,
+        statistics: searchResult.statistics,
+        routes: selectedRoutes,
+        title: "AiZynthFinder Retrosynthesis Report"
+      });
+      const url = URL.createObjectURL(pdf);
+      const anchor = document.createElement("a");
+      const safeTarget = searchResult.target.replace(/[^a-zA-Z0-9_-]+/g, "_");
+      anchor.href = url;
+      anchor.download = `retrosynthesis-report-${safeTarget || "target"}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setExportError(
+        error instanceof Error ? error.message : "Unable to export PDF report"
+      );
+    } finally {
+      setExportingReport(false);
     }
   };
 
@@ -523,10 +577,32 @@ export function App() {
                   </code>
                 </h2>
               </div>
-              <span className="inline-flex w-fit rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-800">
-                {searchResult.elapsed_seconds.toFixed(2)}s
-              </span>
+              <div className="flex flex-col items-start gap-2 sm:items-end">
+                <span className="inline-flex w-fit rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-800">
+                  {searchResult.elapsed_seconds.toFixed(2)}s
+                </span>
+                <button
+                  type="button"
+                  onClick={exportSelectedReport}
+                  disabled={exportingReport || selectedReportRouteIds.length === 0}
+                  className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-200 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+                >
+                  {exportingReport
+                    ? "Exporting PDF..."
+                    : `Export PDF (${selectedReportRouteIds.length})`}
+                </button>
+              </div>
             </div>
+
+            {exportError && (
+              <div
+                className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+                role="alert"
+              >
+                <span className="font-semibold">PDF export failed:</span>{" "}
+                {exportError}
+              </div>
+            )}
 
             {searchResult.warnings.map((warning) => (
               <div
@@ -577,31 +653,70 @@ export function App() {
                     {searchResult.routes.length}
                   </span>
                 </div>
-                <div className="grid content-start gap-2">
-                {searchResult.routes.map((route, index) => (
+                <div className="mb-3 grid grid-cols-2 gap-2">
                   <button
                     type="button"
+                    onClick={() =>
+                      setSelectedReportRouteIds(
+                        searchResult.routes.map((route) => route.index)
+                      )
+                    }
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                  >
+                    Select all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedReportRouteIds([])}
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div className="grid content-start gap-2">
+                {searchResult.routes.map((route, index) => (
+                  <div
                     key={route.index}
-                    onClick={() => setSelectedRouteIndex(index)}
-                    className={`flex items-center justify-between rounded-lg border px-4 py-3 text-left text-sm transition ${
+                    className={`rounded-lg border p-3 transition ${
                       index === selectedRouteIndex
                         ? "border-blue-700 bg-blue-700 text-white"
                         : "border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50"
                     }`}
                   >
-                    <span className="font-semibold">Route {route.index}</span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="flex items-center gap-2 text-xs font-semibold">
+                        <input
+                          type="checkbox"
+                          checked={selectedReportRouteIds.includes(route.index)}
+                          onChange={() => toggleReportRoute(route.index)}
+                          className="h-4 w-4 rounded border-slate-300 bg-white text-blue-700 focus:ring-blue-500"
+                        />
+                        Report
+                      </label>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                          index === selectedRouteIndex
+                            ? "bg-white/20 text-white"
+                            : route.is_solved
+                              ? "bg-green-100 text-green-800"
+                              : "bg-amber-100 text-amber-800"
+                        }`}
+                      >
+                        {route.is_solved ? "Solved" : "Unsolved"}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRouteIndex(index)}
+                      className={`mt-2 block w-full rounded-md px-2 py-1 text-left text-sm font-semibold ${
                         index === selectedRouteIndex
-                          ? "bg-white/20 text-white"
-                          : route.is_solved
-                            ? "bg-green-100 text-green-800"
-                            : "bg-amber-100 text-amber-800"
+                          ? "bg-white/15 text-white"
+                          : "text-slate-800 hover:bg-slate-100"
                       }`}
                     >
-                      {route.is_solved ? "Solved" : "Unsolved"}
-                    </span>
-                  </button>
+                      Route {route.index}
+                    </button>
+                  </div>
                 ))}
                 </div>
               </aside>

@@ -119,3 +119,10 @@ class SearchResponse(BaseModel):
     stock_info: dict[str, Any]
     routes: list[RouteResult]
     warnings: list[str] = Field(default_factory=list)
+
+
+class ReportRequest(BaseModel):
+    target: str = Field(..., min_length=1)
+    statistics: dict[str, Any] = Field(default_factory=dict)
+    routes: list[RouteResult] = Field(..., min_length=1)
+    title: str = "AiZynthFinder Retrosynthesis Report"

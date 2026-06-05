@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import AsyncIterator
 
 import anyio
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -17,11 +17,13 @@ from .models import (
     MolfileConversionRequest,
     MolfileResponse,
     MetadataResponse,
+    ReportRequest,
     SearchRequest,
     SearchResponse,
     SmilesConversionRequest,
     SmilesResponse,
 )
+from .reporting import build_pdf_report
 from .settings import Settings
 
 settings = Settings.from_env()
@@ -109,6 +111,18 @@ def smiles_to_molfile(request: SmilesConversionRequest) -> MolfileResponse:
         raise HTTPException(status_code=400, detail="Unable to parse SMILES")
     AllChem.Compute2DCoords(mol)
     return MolfileResponse(molfile=Chem.MolToMolBlock(mol))
+
+
+@app.post("/api/report/pdf")
+def pdf_report(request: ReportRequest) -> Response:
+    """Generate a PDF report for selected retrosynthesis routes."""
+
+    pdf_bytes = build_pdf_report(request)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'attachment; filename="retrosynthesis-report.pdf"'},
+    )
 
 
 static_dir = Path(settings.static_dir)
