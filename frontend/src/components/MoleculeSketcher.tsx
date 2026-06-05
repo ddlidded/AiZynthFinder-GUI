@@ -121,23 +121,42 @@ export function MoleculeSketcher({
   };
 
   return (
-    <section className="panel sketcher-panel">
-      <div className="panel-header">
+    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mb-5 flex items-start justify-between gap-4">
         <div>
-          <p className="eyebrow">Molecule sketcher</p>
-          <h2>Draw target compound</h2>
+          <p className="text-xs font-bold uppercase tracking-wide text-blue-700">
+            Molecule sketcher
+          </p>
+          <h2 className="mt-1 text-2xl font-bold text-slate-950">
+            Draw target compound
+          </h2>
         </div>
-        <span className={`status-pill ${ready ? "ready" : "muted"}`}>
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+            ready ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-700"
+          }`}
+        >
           {ready ? "Ready" : "Optional"}
         </span>
       </div>
-      <p className="helper">{status}</p>
-      <div id={containerId} className="jsme-container" />
-      <div className="button-row">
-        <button type="button" className="secondary" onClick={loadCurrentSmiles}>
+      <p className="text-sm leading-6 text-slate-600">{status}</p>
+      <div
+        id={containerId}
+        className="mt-4 grid min-h-[360px] place-items-center overflow-hidden rounded-xl border border-slate-200 bg-white"
+      />
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={loadCurrentSmiles}
+          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-200"
+        >
           Load typed SMILES
         </button>
-        <button type="button" className="secondary" onClick={useDrawing}>
+        <button
+          type="button"
+          onClick={useDrawing}
+          className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 focus:outline-none focus:ring-4 focus:ring-blue-100"
+        >
           Use drawing SMILES
         </button>
       </div>

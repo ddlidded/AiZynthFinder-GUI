@@ -132,8 +132,9 @@ class RetrosynthesisService:
             self._aizynthfinder_class()
         except ImportError as err:
             return (
-                "The Python package `aizynthfinder` is not installed in this "
-                f"environment: {err}"
+                "AiZynthFinder could not be imported. Ensure the Python package "
+                "`aizynthfinder` and its native runtime libraries are installed "
+                f"(for Docker this includes libXrender/libXext/libSM/libGL): {err}"
             )
         return None
 
