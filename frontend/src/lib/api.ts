@@ -17,6 +17,23 @@ export interface MetadataResponse {
   defaults: SearchDefaults;
 }
 
+export interface DataFileStatus {
+  name: string;
+  path: string;
+  exists: boolean;
+  size_bytes: number;
+}
+
+export interface DeploymentStatusResponse {
+  api_ready: boolean;
+  config_path?: string | null;
+  data_dir?: string | null;
+  public_data_ready: boolean;
+  missing_files: string[];
+  files: DataFileStatus[];
+  message: string;
+}
+
 export interface SearchRequest {
   smiles: string;
   stocks: string[];
@@ -89,6 +106,10 @@ async function requestJson<T>(
 
 export function fetchMetadata(): Promise<MetadataResponse> {
   return requestJson<MetadataResponse>("/api/metadata");
+}
+
+export function fetchDeploymentStatus(): Promise<DeploymentStatusResponse> {
+  return requestJson<DeploymentStatusResponse>("/api/status");
 }
 
 export function runSearch(payload: SearchRequest): Promise<SearchResponse> {

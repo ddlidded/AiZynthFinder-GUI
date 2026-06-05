@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any
 
 from .models import (
+    DataFileStatus,
+    DeploymentStatusResponse,
     MetadataResponse,
     RouteResult,
     SearchDefaults,
@@ -26,10 +28,70 @@ class ServiceNotReadyError(RuntimeError):
 class RetrosynthesisService:
     """Thin wrapper around the official AiZynthFinder Python API."""
 
+    PUBLIC_DATA_FILES = (
+        "config.yml",
+        "uspto_model.onnx",
+        "uspto_templates.csv.gz",
+        "uspto_ringbreaker_model.onnx",
+        "uspto_ringbreaker_templates.csv.gz",
+        "uspto_filter_model.onnx",
+        "zinc_stock.hdf5",
+    )
+
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
         self._metadata_lock = threading.Lock()
         self._metadata_cache: MetadataResponse | None = None
+
+    def deployment_status(self) -> DeploymentStatusResponse:
+        """Return a lightweight status without importing AiZynthFinder."""
+
+        config_path = self._settings.config_path
+        data_dir = config_path.parent if config_path else None
+        file_statuses: list[DataFileStatus] = []
+        missing_files: list[str] = []
+
+        if data_dir:
+            for filename in self.PUBLIC_DATA_FILES:
+                path = data_dir / filename
+                exists = path.exists() and path.stat().st_size > 0
+                size = path.stat().st_size if path.exists() else 0
+                file_statuses.append(
+                    DataFileStatus(
+                        name=filename,
+                        path=str(path),
+                        exists=exists,
+                        size_bytes=size,
+                    )
+                )
+                if not exists:
+                    missing_files.append(filename)
+
+        public_data_ready = bool(config_path and config_path.exists() and not missing_files)
+        if public_data_ready:
+            message = (
+                "Public USPTO/ZINC data files are present. If the UI still says "
+                "Checking engine, AiZynthFinder is loading models for the first time."
+            )
+        elif config_path:
+            message = (
+                "AiZynthFinder config was found, but one or more public data files "
+                "are missing or empty."
+            )
+        else:
+            message = (
+                "AiZynthFinder config was not found yet. In Docker/Easypanel, check "
+                "container logs for the automatic public data download."
+            )
+
+        return DeploymentStatusResponse(
+            config_path=str(config_path) if config_path else None,
+            data_dir=str(data_dir) if data_dir else None,
+            public_data_ready=public_data_ready,
+            missing_files=missing_files,
+            files=file_statuses,
+            message=message,
+        )
 
     def metadata(self) -> MetadataResponse:
         """Return available stocks, policies and scorers for the configured engine."""

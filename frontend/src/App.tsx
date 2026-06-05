@@ -2,11 +2,13 @@ import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "re
 import { MoleculeSketcher } from "./components/MoleculeSketcher";
 import { RouteTree } from "./components/RouteTree";
 import {
+  fetchDeploymentStatus,
   fetchMetadata,
-  MetadataResponse,
   runSearch,
-  SearchRequest,
-  SearchResponse
+  type DeploymentStatusResponse,
+  type MetadataResponse,
+  type SearchRequest,
+  type SearchResponse
 } from "./lib/api";
 import { formatValue } from "./lib/routes";
 
@@ -28,17 +30,91 @@ function useMetadata() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchMetadata()
-      .then(setMetadata)
-      .catch((err: Error) => setError(err.message))
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    let timeoutId: number | undefined;
+
+    const loadMetadata = () => {
+      setLoading(true);
+      fetchMetadata()
+        .then((payload) => {
+          if (cancelled) {
+            return;
+          }
+          setMetadata(payload);
+          setError(null);
+          if (!payload.ready) {
+            timeoutId = window.setTimeout(loadMetadata, 15000);
+          }
+        })
+        .catch((err: Error) => {
+          if (cancelled) {
+            return;
+          }
+          setError(err.message);
+          timeoutId = window.setTimeout(loadMetadata, 15000);
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setLoading(false);
+          }
+        });
+    };
+
+    loadMetadata();
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+    };
   }, []);
 
   return { metadata, error, loading };
 }
 
+function useDeploymentStatus() {
+  const [status, setStatus] = useState<DeploymentStatusResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let intervalId: number | undefined;
+
+    const loadStatus = () => {
+      fetchDeploymentStatus()
+        .then((payload) => {
+          if (cancelled) {
+            return;
+          }
+          setStatus(payload);
+          setError(null);
+        })
+        .catch((err: Error) => {
+          if (cancelled) {
+            return;
+          }
+          setError(err.message);
+        });
+    };
+
+    loadStatus();
+    intervalId = window.setInterval(loadStatus, 10000);
+
+    return () => {
+      cancelled = true;
+      if (intervalId) {
+        window.clearInterval(intervalId);
+      }
+    };
+  }, []);
+
+  return { status, error };
+}
+
 export function App() {
   const { metadata, error: metadataError, loading: metadataLoading } = useMetadata();
+  const { status: deploymentStatus, error: statusError } = useDeploymentStatus();
   const defaults = metadata?.defaults;
   const [smiles, setSmiles] = useState(exampleSmiles[0]);
   const [stocks, setStocks] = useState<string[]>([]);
@@ -79,11 +155,24 @@ export function App() {
   }, [searchResult, selectedRouteIndex]);
 
   const ready = metadata?.ready ?? false;
-  const statusText = metadataLoading
-    ? "Checking engine"
-    : ready
-      ? "Engine ready"
-      : "Setup needed";
+  const statusText = ready
+    ? "Engine ready"
+    : metadataLoading && deploymentStatus?.public_data_ready
+      ? "Loading engine"
+      : deploymentStatus && !deploymentStatus.public_data_ready
+        ? "Waiting for data"
+        : metadataLoading
+          ? "Checking backend"
+          : "Setup needed";
+  const backendMessage = ready
+    ? `Using ${metadata?.config_path}`
+    : metadataLoading && deploymentStatus?.public_data_ready
+      ? "Public data is present. AiZynthFinder is loading the USPTO models and ZINC stock; first startup can take a minute or two."
+      : deploymentStatus?.message ??
+        metadata?.message ??
+        metadataError ??
+        statusError ??
+        "Checking backend and public model data...";
 
   const submitSearch = async (event: FormEvent) => {
     event.preventDefault();
@@ -188,12 +277,20 @@ export function App() {
                 </span>
               </div>
               <p className="break-words text-sm leading-6 text-slate-700">
-                {ready
-                  ? `Using ${metadata?.config_path}`
-                  : metadata?.message ??
-                    metadataError ??
-                    "Connect the backend to AiZynthFinder model data."}
+                {backendMessage}
               </p>
+              {!ready && deploymentStatus?.missing_files.length ? (
+                <div className="mt-3 rounded-lg border border-amber-200 bg-white/70 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">
+                    Missing public data files
+                  </p>
+                  <ul className="mt-2 list-inside list-disc text-xs text-slate-700">
+                    {deploymentStatus.missing_files.map((file) => (
+                      <li key={file}>{file}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
           </div>
         </section>

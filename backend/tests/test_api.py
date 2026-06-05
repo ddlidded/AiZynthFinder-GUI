@@ -15,6 +15,15 @@ def test_health_endpoint() -> None:
     assert response.json() == {"status": "ok"}
 
 
+def test_status_endpoint_is_lightweight() -> None:
+    response = TestClient(app).get("/api/status")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["api_ready"] is True
+    assert "message" in payload
+
+
 def test_metadata_reports_not_ready_without_config() -> None:
     service = RetrosynthesisService(
         Settings(
@@ -30,6 +39,23 @@ def test_metadata_reports_not_ready_without_config() -> None:
 
     assert metadata.ready is False
     assert "AIZYNTH_CONFIG" in str(metadata.message)
+
+
+def test_deployment_status_reports_missing_config() -> None:
+    service = RetrosynthesisService(
+        Settings(
+            config_path=None,
+            cors_origins=("http://localhost:5173",),
+            max_time_seconds=900,
+            max_iterations=5000,
+            static_dir=Path("frontend/dist"),
+        )
+    )
+
+    status = service.deployment_status()
+
+    assert status.public_data_ready is False
+    assert "config was not found" in status.message
 
 
 def test_search_request_strips_smiles_and_atom_limits() -> None:

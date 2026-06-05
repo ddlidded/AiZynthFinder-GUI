@@ -10,7 +10,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .aizynth_service import RetrosynthesisService, ServiceNotReadyError
-from .models import MetadataResponse, SearchRequest, SearchResponse
+from .models import (
+    DeploymentStatusResponse,
+    MetadataResponse,
+    SearchRequest,
+    SearchResponse,
+)
 from .settings import Settings
 
 settings = Settings.from_env()
@@ -36,6 +41,13 @@ def health() -> dict[str, str]:
     """Basic liveness endpoint."""
 
     return {"status": "ok"}
+
+
+@app.get("/api/status", response_model=DeploymentStatusResponse)
+def status() -> DeploymentStatusResponse:
+    """Return lightweight deployment and public data status."""
+
+    return service.deployment_status()
 
 
 @app.get("/api/metadata", response_model=MetadataResponse)
