@@ -18,6 +18,17 @@ const exampleSmiles = [
   "CCOC(=O)C1=CC=CC=C1"
 ];
 
+const primaryStatNames = [
+  "search_time",
+  "top_score",
+  "is_solved",
+  "number_of_routes",
+  "number_of_solved_routes",
+  "number_of_steps",
+  "number_of_precursors",
+  "number_of_precursors_in_stock"
+];
+
 function toggleSelection(value: string, selected: string[]): string[] {
   return selected.includes(value)
     ? selected.filter((item) => item !== value)
@@ -160,6 +171,17 @@ export function App() {
     }
     return searchResult.routes[selectedRouteIndex] ?? searchResult.routes[0];
   }, [searchResult, selectedRouteIndex]);
+  const { primaryStats, detailStats } = useMemo(() => {
+    const entries = Object.entries(searchResult?.statistics ?? {});
+    const primary = primaryStatNames
+      .map((name) => entries.find(([entryName]) => entryName === name))
+      .filter((entry): entry is [string, unknown] => Boolean(entry));
+    const primaryNames = new Set(primary.map(([name]) => name));
+    return {
+      primaryStats: primary,
+      detailStats: entries.filter(([name]) => !primaryNames.has(name))
+    };
+  }, [searchResult]);
 
   const ready = metadata?.ready ?? false;
   const statusText = ready
@@ -506,23 +528,46 @@ export function App() {
             ))}
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {Object.entries(searchResult.statistics).map(([name, value]) => (
-                <div
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-4"
-                  key={name}
-                >
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                    {name.replaceAll("_", " ")}
-                  </p>
-                  <p className="mt-2 break-words text-lg font-bold text-slate-950">
-                    {formatValue(value)}
-                  </p>
-                </div>
+              {primaryStats.map(([name, value]) => (
+                <StatCard key={name} name={name} value={value} />
               ))}
             </div>
 
-            <div className="mt-6 grid gap-6 lg:grid-cols-[240px_1fr]">
-              <aside className="grid content-start gap-2">
+            {detailStats.length > 0 && (
+              <details className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <summary className="cursor-pointer text-sm font-semibold text-slate-900">
+                  Additional search statistics
+                </summary>
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+                    <tbody className="divide-y divide-slate-200">
+                      {detailStats.map(([name, value]) => (
+                        <tr key={name}>
+                          <th className="w-56 whitespace-nowrap py-3 pr-4 align-top text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            {name.replaceAll("_", " ")}
+                          </th>
+                          <td className="max-w-4xl py-3 align-top font-medium text-slate-800">
+                            <code className="whitespace-pre-wrap break-words rounded bg-white px-2 py-1 text-xs text-slate-800">
+                              {formatValue(value)}
+                            </code>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            )}
+
+            <div className="mt-6 grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
+              <aside className="max-h-[720px] overflow-auto rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <div className="mb-3 flex items-center justify-between px-1">
+                  <h3 className="text-sm font-bold text-slate-950">Routes</h3>
+                  <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                    {searchResult.routes.length}
+                  </span>
+                </div>
+                <div className="grid content-start gap-2">
                 {searchResult.routes.map((route, index) => (
                   <button
                     type="button"
@@ -548,6 +593,7 @@ export function App() {
                     </span>
                   </button>
                 ))}
+                </div>
               </aside>
 
               {selectedRoute ? (
@@ -661,6 +707,19 @@ function NumberField({
         className="block w-full rounded-lg border border-slate-300 bg-slate-50 p-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-blue-500"
       />
     </label>
+  );
+}
+
+function StatCard({ name, value }: { name: string; value: unknown }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {name.replaceAll("_", " ")}
+      </p>
+      <p className="mt-2 truncate text-xl font-bold text-slate-950" title={formatValue(value)}>
+        {formatValue(value)}
+      </p>
+    </div>
   );
 }
 

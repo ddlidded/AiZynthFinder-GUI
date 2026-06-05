@@ -80,7 +80,7 @@ export function RouteTree({ route }: RouteTreeProps) {
   const scoreEntries = Object.entries(route.scores);
 
   return (
-    <article className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+    <article className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-blue-700">
@@ -119,7 +119,13 @@ export function RouteTree({ route }: RouteTreeProps) {
       )}
 
       {route.image && (
-        <div className="mb-5 overflow-auto rounded-xl border border-slate-200 bg-white p-3">
+        <div className="mb-5 overflow-auto rounded-xl border border-slate-200 bg-white p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h4 className="text-sm font-bold text-slate-950">Rendered route</h4>
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+              AiZynthFinder image
+            </span>
+          </div>
           <img
             className="mx-auto max-w-full"
             src={route.image}
@@ -128,9 +134,14 @@ export function RouteTree({ route }: RouteTreeProps) {
         </div>
       )}
 
-      <ul className="m-0 list-none p-0">
-        <RouteNodeView node={route.tree} />
-      </ul>
+      <details className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <summary className="cursor-pointer text-sm font-semibold text-slate-900">
+          Show structured route tree
+        </summary>
+        <ul className="m-0 mt-4 list-none p-0">
+          <RouteNodeView node={route.tree} />
+        </ul>
+      </details>
     </article>
   );
 }

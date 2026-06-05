@@ -8,11 +8,17 @@
     sans-serif;
 }
 
+html {
+  color-scheme: light;
+  background: #f8fafc;
+}
+
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
   background: #f8fafc;
+  color: #0f172a;
 }
 
 button,
