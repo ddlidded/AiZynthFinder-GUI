@@ -146,3 +146,22 @@ For Easypanel:
 
 If port `43871` is already used on your host, set `AIZYNTH_GUI_PORT` to another
 free high port before deployment. The internal container port remains `8000`.
+
+### Easypanel startup status
+
+The container logs every required public data file before starting the web
+server. On first boot, Easypanel may show the service as starting while the
+USPTO/ZINC files are downloaded into the Docker volume.
+
+Useful checks:
+
+- `GET /api/health` - API liveness only
+- `GET /api/status` - fast deployment check for config/model/stock files
+- `GET /api/metadata` - initializes AiZynthFinder and can take longer on first
+  startup because it loads the USPTO models and ZINC stock. This endpoint starts
+  engine warmup in the background and returns an initializing response quickly,
+  so it should not time out behind Easypanel.
+
+If the UI shows **Loading engine**, the public data files are present and the
+backend is initializing AiZynthFinder. If it shows **Waiting for data**, inspect
+the Easypanel container logs for the automatic download/verification output.

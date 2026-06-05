@@ -17,24 +17,51 @@ function RouteNodeView({ node, depth = 0 }: { node: RouteNode; depth?: number })
   const children = node.children ?? [];
 
   return (
-    <li className={`route-node ${isReaction ? "reaction" : "molecule"}`}>
-      <div className="route-card" style={{ marginLeft: depth ? 18 : 0 }}>
-        <div className="route-card-topline">
-          <span className="node-kind">{isReaction ? "Reaction" : "Molecule"}</span>
+    <li className="my-3">
+      <div
+        className={`rounded-xl border p-4 shadow-sm ${
+          isReaction
+            ? "border-blue-200 bg-blue-50"
+            : "border-slate-200 bg-white"
+        }`}
+        style={{ marginLeft: depth ? 18 : 0 }}
+      >
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <span
+            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+              isReaction
+                ? "bg-blue-100 text-blue-800"
+                : "bg-slate-100 text-slate-700"
+            }`}
+          >
+            {isReaction ? "Reaction" : "Molecule"}
+          </span>
           {!isReaction && (
-            <span className={`stock-chip ${node.in_stock ? "in" : "out"}`}>
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                node.in_stock
+                  ? "bg-green-100 text-green-800"
+                  : "bg-amber-100 text-amber-800"
+              }`}
+            >
               {node.in_stock ? "In stock" : "Not in stock"}
             </span>
           )}
         </div>
-        <strong>{nodeTitle(node)}</strong>
-        <code>{node.smiles ?? "No SMILES"}</code>
+        <strong className="block text-sm font-bold text-slate-950">
+          {nodeTitle(node)}
+        </strong>
+        <code className="mt-2 block break-words rounded-lg bg-slate-100 p-2 text-xs text-slate-800">
+          {node.smiles ?? "No SMILES"}
+        </code>
         {node.metadata?.classification !== undefined && (
-          <small>Class: {String(node.metadata.classification)}</small>
+          <small className="mt-2 block text-xs text-slate-500">
+            Class: {String(node.metadata.classification)}
+          </small>
         )}
       </div>
       {children.length > 0 && (
-        <ul className="route-children">
+        <ul className="ml-4 border-l border-dashed border-slate-300 pl-3">
           {children.map((child, index) => (
             <RouteNodeView
               key={`${child.type}-${child.smiles}-${index}`}
@@ -53,48 +80,79 @@ export function RouteTree({ route }: RouteTreeProps) {
   const scoreEntries = Object.entries(route.scores);
 
   return (
-    <article className="route-detail">
-      <div className="route-detail-header">
+    <article className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
-          <p className="eyebrow">Route {route.index}</p>
-          <h3>{route.is_solved ? "Solved route" : "Unsolved route"}</h3>
+          <p className="text-xs font-bold uppercase tracking-wide text-blue-700">
+            Route {route.index}
+          </p>
+          <h3 className="mt-1 text-xl font-bold text-slate-950">
+            {route.is_solved ? "Solved route" : "Unsolved route"}
+          </h3>
         </div>
-        <div className="route-summary-grid">
-          <span>
-            <strong>{summary.reactions}</strong>
-            reactions
-          </span>
-          <span>
-            <strong>{summary.inStockLeaves}/{summary.leafMolecules}</strong>
-            leaves in stock
-          </span>
-          <span>
-            <strong>{summary.maxDepth}</strong>
-            max depth
-          </span>
+        <div className="grid w-full gap-3 sm:grid-cols-3 xl:max-w-xl">
+          <SummaryCard label="reactions" value={summary.reactions} />
+          <SummaryCard
+            label="leaves in stock"
+            value={`${summary.inStockLeaves}/${summary.leafMolecules}`}
+          />
+          <SummaryCard label="max depth" value={summary.maxDepth} />
         </div>
       </div>
 
       {scoreEntries.length > 0 && (
-        <div className="score-grid">
+        <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {scoreEntries.map(([name, value]) => (
-            <div key={name} className="score-card">
-              <span>{name}</span>
-              <strong>{formatValue(value)}</strong>
+            <div
+              key={name}
+              className="rounded-xl border border-slate-200 bg-white p-4"
+            >
+              <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                {name}
+              </span>
+              <strong className="mt-1 block break-words text-lg text-slate-950">
+                {formatValue(value)}
+              </strong>
             </div>
           ))}
         </div>
       )}
 
       {route.image && (
-        <div className="route-image-card">
-          <img src={route.image} alt={`AiZynthFinder route ${route.index}`} />
+        <div className="mb-5 overflow-auto rounded-xl border border-slate-200 bg-white p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h4 className="text-sm font-bold text-slate-950">Rendered route</h4>
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+              AiZynthFinder image
+            </span>
+          </div>
+          <img
+            className="mx-auto max-w-full"
+            src={route.image}
+            alt={`AiZynthFinder route ${route.index}`}
+          />
         </div>
       )}
 
-      <ul className="route-tree">
-        <RouteNodeView node={route.tree} />
-      </ul>
+      <details className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <summary className="cursor-pointer text-sm font-semibold text-slate-900">
+          Show structured route tree
+        </summary>
+        <ul className="m-0 mt-4 list-none p-0">
+          <RouteNodeView node={route.tree} />
+        </ul>
+      </details>
     </article>
+  );
+}
+
+function SummaryCard({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
+      <strong className="block text-lg text-slate-950">{value}</strong>
+      <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+        {label}
+      </span>
+    </div>
   );
 }

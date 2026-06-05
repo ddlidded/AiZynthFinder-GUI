@@ -26,6 +26,26 @@ class MetadataResponse(BaseModel):
     defaults: SearchDefaults = Field(default_factory=SearchDefaults)
 
 
+class DataFileStatus(BaseModel):
+    name: str
+    path: str
+    exists: bool
+    size_bytes: int = 0
+
+
+class DeploymentStatusResponse(BaseModel):
+    api_ready: bool = True
+    config_path: str | None = None
+    data_dir: str | None = None
+    public_data_ready: bool = False
+    engine_initialized: bool = False
+    engine_initializing: bool = False
+    engine_error: str | None = None
+    missing_files: list[str] = Field(default_factory=list)
+    files: list[DataFileStatus] = Field(default_factory=list)
+    message: str
+
+
 class SearchRequest(BaseModel):
     smiles: str = Field(..., min_length=1)
     stocks: list[str] = Field(default_factory=list)

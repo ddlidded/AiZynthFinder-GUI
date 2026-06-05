@@ -39,4 +39,16 @@ if [[ "$CONFIG_PATH" != "$DATA_DIR/config.yml" && ! -e "$CONFIG_PATH" ]]; then
   exit 1
 fi
 
+echo "Verifying AiZynthFinder public data files in $DATA_DIR"
+for file in "${required_files[@]}"; do
+  if [[ ! -s "$DATA_DIR/$file" ]]; then
+    echo "Missing or empty required public data file: $DATA_DIR/$file" >&2
+    exit 1
+  fi
+  size="$(du -h "$DATA_DIR/$file" | awk '{print $1}')"
+  echo "  ok: $file ($size)"
+done
+
+echo "Starting AiZynthFinder GUI with AIZYNTH_CONFIG=$AIZYNTH_CONFIG"
+
 exec "$@"
