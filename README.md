@@ -106,9 +106,16 @@ When `frontend/dist` exists, the FastAPI server serves the built web app from `/
 
 ## Easypanel / Docker Compose deployment
 
-This repository includes a single-container Docker deployment for Easypanel.
-It builds the React frontend, installs the Python backend, and automatically
-downloads the public AiZynthFinder data on first startup:
+This repository includes an explicit two-service Docker Compose deployment for
+Easypanel:
+
+- `aizynthfinder-backend` - FastAPI + AiZynthFinder on internal port `8000`
+- `aizynthfinder-frontend` - Nginx-served React UI on public port `80`
+
+The frontend service proxies `/api/*` to `aizynthfinder-backend:8000`, so the
+browser talks to one public service while Easypanel still deploys a real backend
+container. The backend automatically downloads the public AiZynthFinder data on
+first startup:
 
 - USPTO expansion policy ONNX model
 - USPTO reaction templates
@@ -118,10 +125,10 @@ downloads the public AiZynthFinder data on first startup:
 
 No manual model download is required for Docker deployment.
 
-The compose file maps the application to a randomly chosen high host port:
+The compose file maps the frontend service to a randomly chosen high host port:
 
 ```text
-43871 -> container port 8000
+43871 -> frontend container port 80
 ```
 
 Run locally with:
@@ -140,17 +147,20 @@ For Easypanel:
 
 1. Create a new Compose app.
 2. Use the repository's `docker-compose.yml`.
-3. Deploy.
-4. Wait for the first boot to download the public USPTO/ZINC data into the
+3. Deploy both services from the compose file.
+4. Expose/open the `aizynthfinder-frontend` service. Do not expose the backend
+   directly; the frontend proxies `/api` internally.
+5. Wait for the first boot to download the public USPTO/ZINC data into the
    `aizynthfinder-public-data` Docker volume.
 
 If port `43871` is already used on your host, set `AIZYNTH_GUI_PORT` to another
-free high port before deployment. The internal container port remains `8000`.
+free high port before deployment. The backend remains internal on Docker network
+port `8000`.
 
 ### Easypanel startup status and recovery
 
-The web server starts immediately. On first boot, the public USPTO/ZINC files
-download in the background into the Docker volume while the UI shows
+The backend server starts immediately. On first boot, the public USPTO/ZINC files
+download in the background into the backend Docker volume while the UI shows
 **Downloading data** or **Waiting for data**. Search controls unlock after the
 download completes and the engine finishes loading.
 
@@ -172,12 +182,13 @@ startup flow:
 
 1. Stop the Easypanel service.
 2. Pull/redeploy the latest image/commit.
-3. Start the service again. The API should come up quickly and `/api/health`
-   should respond even while data is downloading.
+3. Start the compose app again. The frontend should load quickly and `/api/health`
+   should respond through the frontend proxy even while data is downloading.
 4. If the named volume contains a partial/corrupt download, remove the
    `aizynthfinder-public-data` volume from the Easypanel/Docker volumes page and
    redeploy. The app will recreate it and download the public data again.
 
-The Docker healthcheck intentionally checks only `/api/health`; data/download
-state is reported in `/api/status` and in the UI so Easypanel does not restart a
-healthy web server while the large first-run data download is still in progress.
+The backend Docker healthcheck intentionally checks only `/api/health`;
+data/download state is reported in `/api/status` and in the UI so Easypanel does
+not restart a healthy backend while the large first-run data download is still in
+progress.
