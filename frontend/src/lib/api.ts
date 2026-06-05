@@ -81,6 +81,14 @@ export interface SearchResponse {
   warnings: string[];
 }
 
+export interface SmilesResponse {
+  smiles: string;
+}
+
+export interface MolfileResponse {
+  molfile: string;
+}
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
 async function requestJson<T>(
@@ -115,6 +123,20 @@ export function fetchMetadata(): Promise<MetadataResponse> {
 
 export function fetchDeploymentStatus(): Promise<DeploymentStatusResponse> {
   return requestJson<DeploymentStatusResponse>("/api/status");
+}
+
+export function convertMolfileToSmiles(molfile: string): Promise<SmilesResponse> {
+  return requestJson<SmilesResponse>("/api/convert/molfile-to-smiles", {
+    method: "POST",
+    body: JSON.stringify({ molfile })
+  });
+}
+
+export function convertSmilesToMolfile(smiles: string): Promise<MolfileResponse> {
+  return requestJson<MolfileResponse>("/api/convert/smiles-to-molfile", {
+    method: "POST",
+    body: JSON.stringify({ smiles })
+  });
 }
 
 export function runSearch(payload: SearchRequest): Promise<SearchResponse> {

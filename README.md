@@ -5,7 +5,7 @@ retrosynthesis searches from either typed SMILES or a browser-based molecule ske
 
 The app recreates the workflow of the original Jupyter notebook GUI with:
 
-- SMILES input plus an embedded JSME molecule drawing tool
+- SMILES input plus an embedded ChemDoodle Web Components drawing tool
 - Dynamic loading of configured stocks, expansion policies, filter policies, and scorers
 - Search controls for time limit, iteration limit, route depth, atom limits, and rewards
 - Ranked route summaries, nested route trees, scores, search statistics, and optional route images
@@ -80,17 +80,29 @@ npm run dev
 
 By default, Vite proxies `/api` requests to `http://127.0.0.1:8000`.
 
-The molecule sketcher loads JSME from:
+The molecule sketcher uses ChemDoodle Web Components. Download the official
+ChemDoodle Web Components package from https://web.chemdoodle.com/installation/download
+and host these files under `frontend/public/chemdoodle`:
 
 ```text
-https://jsme-editor.github.io/dist/jsme/jsme.nocache.js
+frontend/public/chemdoodle/ChemDoodleWeb.css
+frontend/public/chemdoodle/ChemDoodleWeb.js
+frontend/public/chemdoodle/uis/ChemDoodleWeb-uis.js
 ```
 
-For offline or controlled deployments, host the JSME distribution yourself and set:
+The default frontend build loads those files from `/chemdoodle`. For custom
+asset hosting, set:
 
 ```bash
-export VITE_JSME_URL=/jsme/jsme.nocache.js
+export VITE_CHEMDOODLE_BASE_URL=/chemdoodle
+# or override each file explicitly:
+export VITE_CHEMDOODLE_CSS_URL=/chemdoodle/ChemDoodleWeb.css
+export VITE_CHEMDOODLE_CORE_URL=/chemdoodle/ChemDoodleWeb.js
+export VITE_CHEMDOODLE_UIS_URL=/chemdoodle/uis/ChemDoodleWeb-uis.js
 ```
+
+ChemDoodle drawings are exported as MDL molfiles in the browser and converted to
+canonical SMILES by the backend using RDKit.
 
 ## Production build
 

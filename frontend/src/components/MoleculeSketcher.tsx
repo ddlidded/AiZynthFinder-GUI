@@ -1,22 +1,34 @@
 import { useEffect, useId, useRef, useState } from "react";
+import {
+  convertMolfileToSmiles,
+  convertSmilesToMolfile
+} from "../lib/api";
 
-type JsmeApplet = {
-  smiles: () => string;
-  readGenericMolecularInput?: (input: string) => void;
-  setCallBack?: (eventName: string, callback: () => void) => void;
+type ChemDoodleSketcher = {
+  getMolecule: () => unknown;
+  loadMolecule: (molecule: unknown) => void;
+  repaint?: () => void;
+  toolbarManager?: {
+    setup?: () => void;
+  };
+  styles?: Record<string, unknown>;
+};
+
+type ChemDoodleGlobal = {
+  SketcherCanvas: new (
+    elementId: string,
+    width?: number,
+    height?: number,
+    options?: Record<string, unknown>
+  ) => ChemDoodleSketcher;
+  readMOL: (molfile: string) => unknown;
+  writeMOL: (molecule: unknown) => string;
+  ELEMENT?: Record<string, { jmolColor?: string }>;
 };
 
 declare global {
   interface Window {
-    JSApplet?: {
-      JSME: new (
-        elementId: string,
-        width: string,
-        height: string,
-        options?: Record<string, string>
-      ) => JsmeApplet;
-    };
-    jsmeOnLoad?: () => void;
+    ChemDoodle?: ChemDoodleGlobal;
   }
 }
 
@@ -25,47 +37,79 @@ interface MoleculeSketcherProps {
   onSmilesChange: (smiles: string) => void;
 }
 
-const JSME_URL =
-  import.meta.env.VITE_JSME_URL ??
-  "https://jsme-editor.github.io/dist/jsme/jsme.nocache.js";
+const CHEMDOODLE_BASE_URL =
+  import.meta.env.VITE_CHEMDOODLE_BASE_URL ?? "/chemdoodle";
+const CHEMDOODLE_CSS_URL =
+  import.meta.env.VITE_CHEMDOODLE_CSS_URL ??
+  `${CHEMDOODLE_BASE_URL}/ChemDoodleWeb.css`;
+const CHEMDOODLE_CORE_URL =
+  import.meta.env.VITE_CHEMDOODLE_CORE_URL ??
+  `${CHEMDOODLE_BASE_URL}/ChemDoodleWeb.js`;
+const CHEMDOODLE_UIS_URL =
+  import.meta.env.VITE_CHEMDOODLE_UIS_URL ??
+  `${CHEMDOODLE_BASE_URL}/uis/ChemDoodleWeb-uis.js`;
 
-let jsmeScriptPromise: Promise<void> | null = null;
+let chemDoodlePromise: Promise<void> | null = null;
 
-function loadJsme(): Promise<void> {
-  if (window.JSApplet?.JSME) {
-    return Promise.resolve();
+function loadStylesheet(href: string): void {
+  if (document.querySelector(`link[href="${href}"]`)) {
+    return;
   }
-  if (jsmeScriptPromise) {
-    return jsmeScriptPromise;
-  }
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = href;
+  document.head.appendChild(link);
+}
 
-  jsmeScriptPromise = new Promise((resolve, reject) => {
+function loadScript(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
     const existing = document.querySelector<HTMLScriptElement>(
-      `script[src="${JSME_URL}"]`
+      `script[src="${src}"]`
     );
-    window.jsmeOnLoad = () => resolve();
     if (existing) {
-      existing.addEventListener("load", () => resolve());
-      existing.addEventListener("error", () =>
-        reject(new Error("Unable to load JSME molecule editor"))
-      );
+      if (existing.dataset.loaded === "true") {
+        resolve();
+      } else {
+        existing.addEventListener("load", () => resolve());
+        existing.addEventListener("error", () =>
+          reject(new Error(`Unable to load ${src}`))
+        );
+      }
       return;
     }
 
     const script = document.createElement("script");
-    script.src = JSME_URL;
-    script.async = true;
+    script.src = src;
+    script.async = false;
     script.onload = () => {
-      if (window.JSApplet?.JSME) {
-        resolve();
-      }
+      script.dataset.loaded = "true";
+      resolve();
     };
-    script.onerror = () =>
-      reject(new Error(`Unable to load JSME from ${JSME_URL}`));
+    script.onerror = () => reject(new Error(`Unable to load ${src}`));
     document.body.appendChild(script);
   });
+}
 
-  return jsmeScriptPromise;
+function loadChemDoodle(): Promise<void> {
+  if (window.ChemDoodle?.SketcherCanvas) {
+    return Promise.resolve();
+  }
+  if (chemDoodlePromise) {
+    return chemDoodlePromise;
+  }
+
+  chemDoodlePromise = (async () => {
+    loadStylesheet(CHEMDOODLE_CSS_URL);
+    await loadScript(CHEMDOODLE_CORE_URL);
+    await loadScript(CHEMDOODLE_UIS_URL);
+    if (!window.ChemDoodle?.SketcherCanvas) {
+      throw new Error(
+        "ChemDoodle SketcherCanvas was not available after loading ChemDoodle assets"
+      );
+    }
+  })();
+
+  return chemDoodlePromise;
 }
 
 export function MoleculeSketcher({
@@ -73,50 +117,98 @@ export function MoleculeSketcher({
   onSmilesChange
 }: MoleculeSketcherProps) {
   const generatedId = useId().replace(/:/g, "");
-  const containerId = `jsme-${generatedId}`;
-  const applet = useRef<JsmeApplet | null>(null);
-  const [status, setStatus] = useState("Loading drawing tool...");
+  const canvasId = `chemdoodle-${generatedId}`;
+  const sketcher = useRef<ChemDoodleSketcher | null>(null);
+  const [status, setStatus] = useState("Loading ChemDoodle sketcher...");
   const [ready, setReady] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    loadJsme()
+
+    loadChemDoodle()
       .then(() => {
-        if (cancelled || !window.JSApplet?.JSME) {
+        if (cancelled || !window.ChemDoodle?.SketcherCanvas || sketcher.current) {
           return;
         }
-        applet.current = new window.JSApplet.JSME(containerId, "100%", "360px", {
-          options: "oldlook,star"
-        });
-        applet.current.setCallBack?.("AfterStructureModified", () => {
-          const drawnSmiles = applet.current?.smiles().trim();
-          if (drawnSmiles) {
-            onSmilesChange(drawnSmiles);
+
+        if (window.ChemDoodle.ELEMENT?.H) {
+          window.ChemDoodle.ELEMENT.H.jmolColor = "black";
+        }
+        if (window.ChemDoodle.ELEMENT?.S) {
+          window.ChemDoodle.ELEMENT.S.jmolColor = "#B9A130";
+        }
+
+        sketcher.current = new window.ChemDoodle.SketcherCanvas(
+          canvasId,
+          640,
+          360,
+          {
+            useServices: false,
+            oneMolecule: true
           }
-        });
+        );
+        sketcher.current.toolbarManager?.setup?.();
+        if (sketcher.current.styles) {
+          sketcher.current.styles.atoms_displayTerminalCarbonLabels_2D = true;
+          sketcher.current.styles.atoms_useJMOLColors = true;
+        }
+        sketcher.current.repaint?.();
         setReady(true);
-        setStatus("Draw or paste a structure, then use its SMILES.");
+        setStatus("Draw a molecule, then click Use drawing SMILES.");
       })
       .catch((error: Error) => {
-        setStatus(error.message);
+        setStatus(
+          `${error.message}. Download ChemDoodle Web Components and host ChemDoodleWeb.css, ChemDoodleWeb.js, and uis/ChemDoodleWeb-uis.js under /chemdoodle.`
+        );
       });
 
     return () => {
       cancelled = true;
     };
-  }, [containerId, onSmilesChange]);
+  }, [canvasId]);
 
-  const loadCurrentSmiles = () => {
-    if (!applet.current || !smiles.trim()) {
+  const loadCurrentSmiles = async () => {
+    if (!sketcher.current || !window.ChemDoodle || !smiles.trim()) {
       return;
     }
-    applet.current.readGenericMolecularInput?.(smiles.trim());
+    setBusy(true);
+    try {
+      const { molfile } = await convertSmilesToMolfile(smiles.trim());
+      const molecule = window.ChemDoodle.readMOL(molfile);
+      sketcher.current.loadMolecule(molecule);
+      sketcher.current.repaint?.();
+      setStatus("Typed SMILES loaded into ChemDoodle.");
+    } catch (error) {
+      setStatus(
+        error instanceof Error
+          ? error.message
+          : "Unable to load typed SMILES into ChemDoodle"
+      );
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const useDrawing = () => {
-    const drawnSmiles = applet.current?.smiles().trim();
-    if (drawnSmiles) {
+  const useDrawing = async () => {
+    if (!sketcher.current || !window.ChemDoodle) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const molecule = sketcher.current.getMolecule();
+      const molfile = window.ChemDoodle.writeMOL(molecule);
+      const { smiles: drawnSmiles } = await convertMolfileToSmiles(molfile);
       onSmilesChange(drawnSmiles);
+      setStatus(`Drawing converted to SMILES: ${drawnSmiles}`);
+    } catch (error) {
+      setStatus(
+        error instanceof Error
+          ? error.message
+          : "Unable to convert drawing to SMILES"
+      );
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -125,7 +217,7 @@ export function MoleculeSketcher({
       <div className="mb-5 flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-blue-700">
-            Molecule sketcher
+            ChemDoodle sketcher
           </p>
           <h2 className="mt-1 text-2xl font-bold text-slate-950">
             Draw target compound
@@ -140,24 +232,30 @@ export function MoleculeSketcher({
         </span>
       </div>
       <p className="text-sm leading-6 text-slate-600">{status}</p>
-      <div
-        id={containerId}
-        className="mt-4 grid min-h-[360px] place-items-center overflow-hidden rounded-xl border border-slate-200 bg-white"
-      />
+      <div className="mt-4 overflow-auto rounded-xl border border-slate-200 bg-white p-2">
+        <canvas
+          id={canvasId}
+          width={640}
+          height={360}
+          className="mx-auto block max-w-full"
+        />
+      </div>
       <div className="mt-4 flex flex-wrap gap-2">
         <button
           type="button"
           onClick={loadCurrentSmiles}
-          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-200"
+          disabled={!ready || busy}
+          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
         >
           Load typed SMILES
         </button>
         <button
           type="button"
           onClick={useDrawing}
-          className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 focus:outline-none focus:ring-4 focus:ring-blue-100"
+          disabled={!ready || busy}
+          className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Use drawing SMILES
+          {busy ? "Converting..." : "Use drawing SMILES"}
         </button>
       </div>
     </section>

@@ -79,6 +79,30 @@ class SearchRequest(BaseModel):
         }
 
 
+class MolfileConversionRequest(BaseModel):
+    molfile: str = Field(..., min_length=1)
+
+
+class SmilesConversionRequest(BaseModel):
+    smiles: str = Field(..., min_length=1)
+
+    @field_validator("smiles")
+    @classmethod
+    def normalize_smiles(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("SMILES cannot be empty")
+        return normalized
+
+
+class SmilesResponse(BaseModel):
+    smiles: str
+
+
+class MolfileResponse(BaseModel):
+    molfile: str
+
+
 class RouteResult(BaseModel):
     index: int
     is_solved: bool

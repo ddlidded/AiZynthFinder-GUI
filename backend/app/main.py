@@ -14,9 +14,13 @@ from fastapi.staticfiles import StaticFiles
 from .aizynth_service import RetrosynthesisService, ServiceNotReadyError
 from .models import (
     DeploymentStatusResponse,
+    MolfileConversionRequest,
+    MolfileResponse,
     MetadataResponse,
     SearchRequest,
     SearchResponse,
+    SmilesConversionRequest,
+    SmilesResponse,
 )
 from .settings import Settings
 
@@ -79,6 +83,32 @@ async def search(request: SearchRequest) -> SearchResponse:
         raise HTTPException(status_code=503, detail=str(err)) from err
     except ValueError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
+
+
+@app.post("/api/convert/molfile-to-smiles", response_model=SmilesResponse)
+def molfile_to_smiles(request: MolfileConversionRequest) -> SmilesResponse:
+    """Convert a ChemDoodle-exported MDL molfile to canonical SMILES."""
+
+    from rdkit import Chem
+
+    mol = Chem.MolFromMolBlock(request.molfile, sanitize=True, removeHs=False)
+    if mol is None:
+        raise HTTPException(status_code=400, detail="Unable to parse molfile")
+    return SmilesResponse(smiles=Chem.MolToSmiles(mol))
+
+
+@app.post("/api/convert/smiles-to-molfile", response_model=MolfileResponse)
+def smiles_to_molfile(request: SmilesConversionRequest) -> MolfileResponse:
+    """Convert typed SMILES into a 2D molfile that ChemDoodle can load."""
+
+    from rdkit import Chem
+    from rdkit.Chem import AllChem
+
+    mol = Chem.MolFromSmiles(request.smiles)
+    if mol is None:
+        raise HTTPException(status_code=400, detail="Unable to parse SMILES")
+    AllChem.Compute2DCoords(mol)
+    return MolfileResponse(molfile=Chem.MolToMolBlock(mol))
 
 
 static_dir = Path(settings.static_dir)
