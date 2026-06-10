@@ -80,9 +80,15 @@ npm run dev
 
 By default, Vite proxies `/api` requests to `http://127.0.0.1:8000`.
 
-The molecule sketcher uses ChemDoodle Web Components. Download the official
-ChemDoodle Web Components package from https://web.chemdoodle.com/installation/download
-and host these files under `frontend/public/chemdoodle`:
+The molecule sketcher uses ChemDoodle Web Components (GPL v3.0, iChemLabs).
+`npm install` downloads them automatically into `frontend/public/chemdoodle/`.
+You can also run:
+
+```bash
+./scripts/download-chemdoodle.sh
+```
+
+Installed files:
 
 ```text
 frontend/public/chemdoodle/ChemDoodleWeb.css

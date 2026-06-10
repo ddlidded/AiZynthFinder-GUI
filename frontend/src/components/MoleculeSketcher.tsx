@@ -86,8 +86,19 @@ function loadScript(src: string): Promise<void> {
       resolve();
     };
     script.onerror = () => reject(new Error(`Unable to load ${src}`));
-    document.body.appendChild(script);
+    document.head.appendChild(script);
   });
+}
+
+/** ChemDoodle v11 declares `let ChemDoodle` (not `window.ChemDoodle`). */
+function publishChemDoodleGlobal(): void {
+  if (window.ChemDoodle?.SketcherCanvas) {
+    return;
+  }
+  const bridge = document.createElement("script");
+  bridge.textContent = "window.ChemDoodle = ChemDoodle;";
+  document.head.appendChild(bridge);
+  bridge.remove();
 }
 
 function loadChemDoodle(): Promise<void> {
@@ -101,13 +112,18 @@ function loadChemDoodle(): Promise<void> {
   chemDoodlePromise = (async () => {
     loadStylesheet(CHEMDOODLE_CSS_URL);
     await loadScript(CHEMDOODLE_CORE_URL);
+    publishChemDoodleGlobal();
     await loadScript(CHEMDOODLE_UIS_URL);
+    publishChemDoodleGlobal();
     if (!window.ChemDoodle?.SketcherCanvas) {
       throw new Error(
         "ChemDoodle SketcherCanvas was not available after loading ChemDoodle assets"
       );
     }
-  })();
+  })().catch((error) => {
+    chemDoodlePromise = null;
+    throw error;
+  });
 
   return chemDoodlePromise;
 }

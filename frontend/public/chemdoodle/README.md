@@ -1,11 +1,20 @@
-Place the official ChemDoodle Web Components files here:
+ChemDoodle Web Components (GPL v3.0, iChemLabs) are downloaded automatically.
 
-- ChemDoodleWeb.css
-- ChemDoodleWeb.js
-- uis/ChemDoodleWeb-uis.js
+From the repo root or `frontend/` directory:
 
-Download ChemDoodle Web Components from:
+```bash
+./scripts/download-chemdoodle.sh
+# or
+cd frontend && npm run setup:chemdoodle
+```
 
-https://web.chemdoodle.com/installation/download
+`npm install` / `npm ci` also runs this via `postinstall` when the files are missing.
 
-These files are distributed by iChemLabs and are not bundled from npm.
+Installed files:
+
+- `ChemDoodleWeb.css`
+- `ChemDoodleWeb.js`
+- `uis/ChemDoodleWeb-uis.js`
+- `COPYING.txt`
+
+Manual download (if needed): https://web.chemdoodle.com/installation/download

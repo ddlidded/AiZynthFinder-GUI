@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "tsc --noEmit && vite build",
+    "build": "npm run setup:chemdoodle && tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "setup:chemdoodle": "bash ../scripts/download-chemdoodle.sh",
+    "postinstall": "npm run setup:chemdoodle"
   },
   "dependencies": {
     "flowbite": "^4.0.2",

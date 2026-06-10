@@ -21,12 +21,7 @@ Vite proxies `/api` to `http://127.0.0.1:8000`.
 
 1. **System package**: `sudo apt-get install -y python3.12-venv` if venv creation fails on Ubuntu.
 2. **Model data** (~750 MB): `./scripts/download-public-data.sh` → `./aizynth-data/`. Without this, search is disabled (503). Excluded from the VM update script due to size.
-3. **ChemDoodle sketcher assets** (manual): download ChemDoodle Web Components from https://web.chemdoodle.com/installation/download and place under `frontend/public/chemdoodle/`:
-   - `ChemDoodleWeb.css`
-   - `ChemDoodleWeb.js`
-   - `uis/ChemDoodleWeb-uis.js`
-   
-   The SMILES input and search still work without these files; only the molecule sketcher panel is affected.
+3. **ChemDoodle sketcher assets**: auto-downloaded by `npm install` / `npm run setup:chemdoodle` via `./scripts/download-chemdoodle.sh`. Excluded from git (see `.gitignore`). Re-run the script if the sketcher reports missing `/chemdoodle/ChemDoodleWeb.js`.
 
 ### Lint / test / build
 
