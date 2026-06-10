@@ -3,10 +3,13 @@
 FROM node:22-bookworm-slim AS frontend-builder
 WORKDIR /app/frontend
 
+COPY scripts/download-chemdoodle.sh /app/scripts/download-chemdoodle.sh
 COPY frontend/package*.json ./
-RUN npm ci
+RUN npm ci --ignore-scripts
 
 COPY frontend/ ./
+RUN chmod +x /app/scripts/download-chemdoodle.sh \
+    && bash /app/scripts/download-chemdoodle.sh /app/frontend/public/chemdoodle
 RUN npm run build
 
 

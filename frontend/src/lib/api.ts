@@ -81,6 +81,21 @@ export interface SearchResponse {
   warnings: string[];
 }
 
+export interface ReportRequest {
+  target: string;
+  statistics: Record<string, unknown>;
+  routes: RouteResult[];
+  title?: string;
+}
+
+export interface SmilesResponse {
+  smiles: string;
+}
+
+export interface MolfileResponse {
+  molfile: string;
+}
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
 async function requestJson<T>(
@@ -117,9 +132,46 @@ export function fetchDeploymentStatus(): Promise<DeploymentStatusResponse> {
   return requestJson<DeploymentStatusResponse>("/api/status");
 }
 
+export function convertMolfileToSmiles(molfile: string): Promise<SmilesResponse> {
+  return requestJson<SmilesResponse>("/api/convert/molfile-to-smiles", {
+    method: "POST",
+    body: JSON.stringify({ molfile })
+  });
+}
+
+export function convertSmilesToMolfile(smiles: string): Promise<MolfileResponse> {
+  return requestJson<MolfileResponse>("/api/convert/smiles-to-molfile", {
+    method: "POST",
+    body: JSON.stringify({ smiles })
+  });
+}
+
 export function runSearch(payload: SearchRequest): Promise<SearchResponse> {
   return requestJson<SearchResponse>("/api/search", {
     method: "POST",
     body: JSON.stringify(payload)
   });
+}
+
+export async function exportPdfReport(payload: ReportRequest): Promise<Blob> {
+  const response = await fetch(`${API_BASE}/api/report/pdf`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    let message = response.statusText;
+    try {
+      const errorPayload = (await response.json()) as { detail?: string };
+      message = errorPayload.detail ?? message;
+    } catch {
+      // Preserve response status text for non-JSON errors.
+    }
+    throw new Error(message);
+  }
+
+  return response.blob();
 }

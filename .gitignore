@@ -19,3 +19,9 @@ dist/
 
 # AiZynthFinder downloaded model data
 aizynth-data/
+
+# ChemDoodle Web Components (downloaded by scripts/download-chemdoodle.sh)
+frontend/public/chemdoodle/ChemDoodleWeb.css
+frontend/public/chemdoodle/ChemDoodleWeb.js
+frontend/public/chemdoodle/COPYING.txt
+frontend/public/chemdoodle/uis/ChemDoodleWeb-uis.js

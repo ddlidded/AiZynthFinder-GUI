@@ -27,3 +27,25 @@ textarea,
 select {
   font: inherit;
 }
+
+/* ChemDoodle injects toolbar nodes and a canvas as siblings in the host div. */
+.chemdoodle-sketcher-shell {
+  overflow: hidden;
+}
+
+.chemdoodle-sketcher-host {
+  width: 100%;
+  min-width: 0;
+}
+
+.chemdoodle-sketcher-host canvas.ChemDoodleWebComponent {
+  display: block;
+  box-sizing: border-box;
+  touch-action: none;
+}
+
+.chemdoodle-sketcher-host [id$="_main_toolbar"] {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}

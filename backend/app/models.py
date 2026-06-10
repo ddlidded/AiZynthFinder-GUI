@@ -79,6 +79,30 @@ class SearchRequest(BaseModel):
         }
 
 
+class MolfileConversionRequest(BaseModel):
+    molfile: str = Field(..., min_length=1)
+
+
+class SmilesConversionRequest(BaseModel):
+    smiles: str = Field(..., min_length=1)
+
+    @field_validator("smiles")
+    @classmethod
+    def normalize_smiles(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("SMILES cannot be empty")
+        return normalized
+
+
+class SmilesResponse(BaseModel):
+    smiles: str
+
+
+class MolfileResponse(BaseModel):
+    molfile: str
+
+
 class RouteResult(BaseModel):
     index: int
     is_solved: bool
@@ -95,3 +119,10 @@ class SearchResponse(BaseModel):
     stock_info: dict[str, Any]
     routes: list[RouteResult]
     warnings: list[str] = Field(default_factory=list)
+
+
+class ReportRequest(BaseModel):
+    target: str = Field(..., min_length=1)
+    statistics: dict[str, Any] = Field(default_factory=dict)
+    routes: list[RouteResult] = Field(..., min_length=1)
+    title: str = "AiZynthFinder Retrosynthesis Report"
