@@ -3,6 +3,13 @@
 FROM node:22-bookworm-slim AS frontend-builder
 WORKDIR /app/frontend
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        unzip \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY scripts/download-chemdoodle.sh /app/scripts/download-chemdoodle.sh
 COPY frontend/package*.json ./
 RUN npm ci --ignore-scripts
