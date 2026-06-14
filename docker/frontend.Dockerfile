@@ -15,7 +15,8 @@ COPY frontend/package*.json ./
 RUN npm ci --ignore-scripts
 
 COPY frontend/ ./
-RUN chmod +x /app/scripts/download-chemdoodle.sh \
+RUN sed -i 's/\r$//' /app/scripts/download-chemdoodle.sh \
+    && chmod +x /app/scripts/download-chemdoodle.sh \
     && bash /app/scripts/download-chemdoodle.sh /app/frontend/public/chemdoodle
 RUN npm run build
 
