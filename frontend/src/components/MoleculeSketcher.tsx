@@ -166,6 +166,17 @@ function clearSketcherHost(host: HTMLElement): void {
   host.replaceChildren();
 }
 
+function debounce<T extends (...args: Parameters<T>) => void>(
+  fn: T,
+  delay: number
+): (...args: Parameters<T>) => void {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  return (...args) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), delay);
+  };
+}
+
 export function MoleculeSketcher({
   smiles,
   onSmilesChange
@@ -192,9 +203,41 @@ export function MoleculeSketcher({
         return;
       }
       const { width, height } = measureSketcherSize(hostRef.current);
+
+      const canvas = document.getElementById(
+        canvasId
+      ) as HTMLCanvasElement | null;
+      if (!canvas) {
+        return;
+      }
+
+      // Skip if CSS dimensions haven't actually changed
+      const currentStyleW = parseInt(canvas.style.width || "0", 10);
+      const currentStyleH = parseInt(canvas.style.height || "0", 10);
+      if (currentStyleW === width && currentStyleH === height) {
+        return;
+      }
+
+      // Let ChemDoodle update internal state (this also recenters molecules
+      // and repaints, but it sets the canvas backing store to CSS pixels,
+      // breaking HiDPI rendering).
       sketcherRef.current.resize?.(width, height);
+
+      // Restore HiDPI backing store. ChemDoodle's resize() sets
+      // canvas.width/height to CSS pixel dimensions, so on retina displays
+      // the sketcher becomes blurry. We fix the backing store to match
+      // CSS size × devicePixelRatio while keeping CSS display size unchanged.
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+
+      // Repaint now that the backing store is the correct size
       sketcherRef.current.repaint?.();
     };
+
+    const debouncedResizeSketcher = debounce(resizeSketcher, 150);
 
     const initialize = async () => {
       try {
@@ -213,6 +256,10 @@ export function MoleculeSketcher({
         canvas.id = canvasId;
         canvas.width = width;
         canvas.height = height;
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+        canvas.style.display = "block";
+        canvas.style.maxWidth = "100%";
         hostRef.current.appendChild(canvas);
 
         if (window.ChemDoodle?.ELEMENT?.H) {
@@ -240,7 +287,7 @@ export function MoleculeSketcher({
         sketcherRef.current.repaint?.();
 
         resizeObserver = new ResizeObserver(() => {
-          resizeSketcher();
+          debouncedResizeSketcher();
         });
         resizeObserver.observe(hostRef.current);
 
