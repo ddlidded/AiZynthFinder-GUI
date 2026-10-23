@@ -26,7 +26,8 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
 COPY backend/ /app/backend/
 COPY docker/entrypoint.sh /usr/local/bin/aizynthfinder-gui-entrypoint
-RUN chmod +x /usr/local/bin/aizynthfinder-gui-entrypoint
+RUN sed -i 's/\r$//' /usr/local/bin/aizynthfinder-gui-entrypoint \
+    && chmod +x /usr/local/bin/aizynthfinder-gui-entrypoint
 
 VOLUME ["/data/aizynth"]
 EXPOSE 8000
